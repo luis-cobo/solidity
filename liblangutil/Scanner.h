@@ -229,6 +229,8 @@ private:
 
 	Token scanString();
 	Token scanHexString();
+	/// Scans a single line comment and corrects its source location,
+	/// if end of comment was found in next line.
 	Token scanSingleLineDocComment();
 	Token scanMultiLineDocComment();
 	/// Scans a slash '/' and depending on the characters returns the appropriate token

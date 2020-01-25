@@ -309,6 +309,7 @@ bool Scanner::tryScanEndOfLine()
 Token Scanner::scanSingleLineDocComment()
 {
 	LiteralScope literal(this, LITERAL_TYPE_COMMENT);
+	int endPosition = 0;
 	advance(); //consume the last '/' at ///
 
 	skipWhitespaceExceptUnicodeLinebreak();
@@ -317,8 +318,12 @@ Token Scanner::scanSingleLineDocComment()
 	{
 		if (tryScanEndOfLine())
 		{
-			// check if next line is also a documentation comment
-			skipWhitespace();
+			// Check if next line is also a documentation comment.
+			// If any whitespaces were skipped, remember source position
+			// and store skipped count.
+			int startPos = m_source->position();
+			if (skipWhitespace())
+				endPosition = m_source->position() - startPos;
 			if (!m_source->isPastEndOfInput(3) &&
 				m_source->get(0) == '/' &&
 				m_source->get(1) == '/' &&
@@ -338,6 +343,8 @@ Token Scanner::scanSingleLineDocComment()
 		advance();
 	}
 	literal.complete();
+	m_skippedComments[NextNext].location.end = sourcePos() - endPosition;
+
 	return Token::CommentLiteral;
 }
 
@@ -426,12 +433,9 @@ Token Scanner::scanSlash()
 		else if (m_char == '/')
 		{
 			// doxygen style /// comment
-			Token comment;
 			m_skippedComments[NextNext].location.start = firstSlashPosition;
 			m_skippedComments[NextNext].location.source = m_source;
-			comment = scanSingleLineDocComment();
-			m_skippedComments[NextNext].location.end = sourcePos();
-			m_skippedComments[NextNext].token = comment;
+			m_skippedComments[NextNext].token = scanSingleLineDocComment();
 			return Token::Whitespace;
 		}
 		else
