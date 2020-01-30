@@ -2,6 +2,8 @@
 
 Language Features:
  * Allow contract types and enums as keys for mappings.
+ * Report source locations for structured documentation errors.
+
 
 
 Compiler Features:
