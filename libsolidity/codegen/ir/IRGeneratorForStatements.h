@@ -74,7 +74,8 @@ private:
 		std::vector<ASTPointer<Expression const>> const& _arguments
 	);
 
-	std::string fetchFreeMem() const;
+	static std::string freeMemoryStart();
+	static std::string fetchFreeMemoryPointer();
 
 	/// Generates the required conversion code and @returns an IRVariable referring to the value of @a _variable
 	/// converted to type @a _to.
