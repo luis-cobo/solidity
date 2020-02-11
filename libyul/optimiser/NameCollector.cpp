@@ -33,14 +33,34 @@ void NameCollector::operator()(VariableDeclaration const& _varDecl)
 		m_names.emplace(var.name);
 }
 
-void NameCollector::operator ()(FunctionDefinition const& _funDef)
+void NameCollector::operator()(FunctionDefinition const& _funDef)
 {
+	ASTWalker::operator()(_funDef);
+
 	m_names.emplace(_funDef.name);
+
 	for (auto const arg: _funDef.parameters)
 		m_names.emplace(arg.name);
 	for (auto const ret: _funDef.returnVariables)
 		m_names.emplace(ret.name);
-	ASTWalker::operator ()(_funDef);
+}
+
+void NameAndTypeCollector::operator()(VariableDeclaration const& _varDecl)
+{
+	NameCollector::operator()(_varDecl);
+	for (auto const& var: _varDecl.variables)
+		m_variableTypes[var.name] = var.type;
+}
+
+void NameAndTypeCollector::operator()(FunctionDefinition const& _funDef)
+{
+	NameCollector::operator()(_funDef);
+
+	auto& funType = m_functionTypes[_funDef.name];
+	for (auto const arg: _funDef.parameters)
+		funType.parameters.emplace_back(arg.type);
+	for (auto const ret: _funDef.returnVariables)
+		funType.returns.emplace_back(ret.type);
 }
 
 void ReferencesCounter::operator()(Identifier const& _identifier)

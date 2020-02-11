@@ -24,6 +24,7 @@
 
 #include <map>
 #include <set>
+#include <vector>
 
 namespace solidity::yul
 {
@@ -44,8 +45,35 @@ public:
 	void operator()(FunctionDefinition const& _funDef) override;
 
 	std::set<YulString> names() const { return m_names; }
-private:
+
+protected:
 	std::set<YulString> m_names;
+};
+
+/**
+ * Specific AST walker that collects all defined names and their types.
+ */
+class NameAndTypeCollector: public NameCollector
+{
+public:
+	explicit NameAndTypeCollector(Block const& _block): NameCollector(_block)
+	{ }
+
+	using NameCollector::operator();
+	void operator()(VariableDeclaration const& _varDecl) override;
+	void operator()(FunctionDefinition const& _funDef) override;
+
+	struct FunctionType
+	{
+		std::vector<YulString> parameters;
+		std::vector<YulString> returns;
+	};
+	std::map<YulString, YulString> const& variableTypes() const { return m_variableTypes; }
+	std::map<YulString, FunctionType> const& functionTypes() const { return m_functionTypes; }
+
+protected:
+	std::map<YulString, YulString> m_variableTypes;
+	std::map<YulString, FunctionType> m_functionTypes;
 };
 
 /**

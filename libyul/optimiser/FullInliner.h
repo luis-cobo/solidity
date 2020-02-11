@@ -35,8 +35,6 @@
 namespace solidity::yul
 {
 
-class NameCollector;
-
 
 /**
  * Optimiser component that modifies an AST in place, inlining functions.

@@ -24,6 +24,7 @@
 
 #include <libyul/optimiser/ASTWalker.h>
 #include <libyul/optimiser/NameDispenser.h>
+#include <libyul/optimiser/NameCollector.h>
 
 #include <vector>
 
@@ -54,6 +55,8 @@ struct OptimiserStepContext;
  * The final program should be in a form such that with the exception of a loop condition,
  * function calls can only appear in the right-hand side of a variable declaration,
  * assignments or expression statements and all arguments have to be constants or variables.
+ *
+ * Prerequisites: Function hoister, disambiguator
  */
 class ExpressionSplitter: public ASTModifier
 {
@@ -69,7 +72,7 @@ public:
 
 private:
 	explicit ExpressionSplitter(Dialect const& _dialect, NameDispenser& _nameDispenser):
-		m_dialect(_dialect), m_nameDispenser(_nameDispenser)
+		m_dialect(_dialect), m_nameDispenser(_nameDispenser) // TODO initialiez name and type coll
 	{ }
 
 	/// Replaces the expression by a variable if it is a function call or functional
@@ -82,6 +85,7 @@ private:
 	std::vector<Statement> m_statementsToPrefix;
 	Dialect const& m_dialect;
 	NameDispenser& m_nameDispenser;
+	NameAndTypeCollector m_nameAndTypeCollector;
 };
 
 }
