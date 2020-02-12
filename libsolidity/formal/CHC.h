@@ -87,6 +87,7 @@ private:
 	bool shouldVisit(ContractDefinition const& _contract) const;
 	bool shouldVisit(FunctionDefinition const& _function) const;
 	void setCurrentBlock(smt::SymbolicFunctionVariable const& _block, std::vector<smt::Expression> const* _arguments = nullptr);
+	std::set<Expression const*> transactionAssertions(ASTNode const* _txRoot);
 	std::vector<VariableDeclaration const*> stateVariablesIncludingInheritedAndPrivate(ContractDefinition const& _contract) const;
 	//@}
 
@@ -229,6 +230,10 @@ private:
 	/// Control-flow.
 	//@{
 	FunctionDefinition const* m_currentFunction = nullptr;
+
+	std::map<ASTNode const*, std::set<ASTNode const*>> m_callGraph;
+
+	std::map<ASTNode const*, std::set<Expression const*>> m_functionAssertions;
 
 	/// The current block.
 	smt::Expression m_currentBlock = smt::Expression(true);

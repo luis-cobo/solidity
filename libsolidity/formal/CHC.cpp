@@ -489,12 +489,23 @@ void CHC::visitAssert(FunctionCall const& _funCall)
 	solAssert(args.size() == 1, "");
 	solAssert(args.front()->annotation().type->category() == Type::Category::Bool, "");
 
-	createErrorBlock();
+	solAssert(m_currentContract, "");
+	solAssert(m_currentFunction, "");
+	if (m_currentFunction->isConstructor())
+		m_functionAssertions[m_currentContract].insert(&_funCall);
+	else
+		m_functionAssertions[m_currentFunction].insert(&_funCall);
 
-	smt::Expression assertNeg = !(m_context.expression(*args.front())->currentValue());
-	connectBlocks(m_currentBlock, error(), currentPathConditions() && assertNeg);
+	auto previousError = m_error.currentValue();
+	m_error.increaseIndex();
 
-	m_verificationTargets.push_back(&_funCall);
+	connectBlocks(
+		m_currentBlock,
+		m_currentFunction->isConstructor() ? summary(*m_currentContract) : summary(*m_currentFunction),
+		currentPathConditions() && !m_context.expression(*args.front())->currentValue() && (m_error.currentValue() == _funCall.id())
+	);
+
+	m_context.addAssertion(m_error.currentValue() == previousError);
 }
 
 void CHC::unknownFunctionCall(FunctionCall const&)
@@ -571,6 +582,25 @@ void CHC::setCurrentBlock(
 		m_currentBlock = predicate(_block, *_arguments);
 	else
 		m_currentBlock = predicate(_block);
+}
+
+set<Expression const*> CHC::transactionAssertions(ASTNode const* _txRoot)
+{
+	set<Expression const*> assertions;
+	set<ASTNode const*> visited;
+	queue<ASTNode const*> toVisit;
+	toVisit.push(_txRoot);
+	while (!toVisit.empty())
+	{
+		auto const* function = toVisit.front();
+		toVisit.pop();
+		visited.insert(function);
+		assertions.insert(m_functionAssertions[function].begin(), m_functionAssertions[function].end());
+		for (auto const* called: m_callGraph[function])
+			if (!visited.count(called))
+				toVisit.push(called);
+	}
+	return assertions;
 }
 
 vector<VariableDeclaration const*> CHC::stateVariablesIncludingInheritedAndPrivate(ContractDefinition const& _contract) const
