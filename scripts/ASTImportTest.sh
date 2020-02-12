@@ -79,7 +79,7 @@ for solfile in $(find $SYNTAXTESTS_DIR -name *.sol)
 do
     echo -n "."
     # create a temporary sub-directory
-    FILETMP=$(mktemp -d -p $WORKINGDIR)
+    FILETMP=$(mktemp -d $WORKINGDIR)
     cd $FILETMP
 
     OUTPUT=$($SPLITSOURCES $solfile)
