@@ -604,13 +604,13 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 		}
 		solAssert(indexedArgs.size() <= 4, "Too many indexed arguments.");
 		Whiskers templ(R"({
-			let <pos> := <fetchFreeMemoryPointer>
+			let <pos> := <freeMemory>
 			let <end> := <encode>(<pos> <nonIndexedArgs>)
 			<log>(<pos>, sub(<end>, <pos>) <indexedArgs>)
 		})");
 		templ("pos", m_context.newYulVariable());
 		templ("end", m_context.newYulVariable());
-		templ("fetchFreeMemoryPointer", fetchFreeMemoryPointer());
+		templ("freeMemory", freeMemory());
 		templ("encode", abi.tupleEncoder(nonIndexedArgTypes, nonIndexedParamTypes));
 		templ("nonIndexedArgs", nonIndexedArgs);
 		templ("log", "log" + to_string(indexedArgs.size()));
@@ -1197,7 +1197,7 @@ void IRGeneratorForStatements::appendExternalFunctionCall(
 		// We could also just use MLOAD; POP right before the gas calculation, but the optimizer
 		// would remove that, so we use MSTORE here.
 		if (!funType.gasSet() && estimatedReturnSize > 0)
-			m_code << "mstore(add(" << fetchFreeMemoryPointer() << ", " << to_string(estimatedReturnSize) << "), 0)\n";
+			m_code << "mstore(add(" << freeMemory() << ", " << to_string(estimatedReturnSize) << "), 0)\n";
 	}
 
 	ABIFunctions abi(m_context.evmVersion(), m_context.revertStrings(), m_context.functionCollector());
@@ -1208,7 +1208,7 @@ void IRGeneratorForStatements::appendExternalFunctionCall(
 			if iszero(extcodesize(<address>)) { revert(0, 0) }
 		</checkExistence>
 
-		let <pos> := <fetchFreeMemoryPointer>
+		let <pos> := <freeMemory>
 
 		mstore(<pos>, <shl28>(<funId>))
 		let <end> := <encodeArgs>(add(<pos>, 4) <argumentString>)
@@ -1220,14 +1220,14 @@ void IRGeneratorForStatements::appendExternalFunctionCall(
 			returndatacopy(<pos>, 0, returndatasize())
 		</dynamicReturnSize>
 
-		mstore(<freeMemoryStart>, add(<pos>, and(add(<returnSize>, 0x1f), not(0x1f))))
+		mstore(<freeMemoryPointer>, add(<pos>, and(add(<returnSize>, 0x1f), not(0x1f))))
 		<?returns> let <retVars> := </returns> <abiDecode>(<pos>, add(<pos>, <returnSize>))
 	)");
 	templ("pos", m_context.newYulVariable());
 	templ("end", m_context.newYulVariable());
 	templ("result", m_context.newYulVariable());
-	templ("freeMemoryStart", freeMemoryStart());
-	templ("fetchFreeMemoryPointer", fetchFreeMemoryPointer());
+	templ("freeMemory", freeMemory());
+	templ("freeMemoryPointer", to_string(CompilerUtils::freeMemoryPointer));
 	templ("shl28", m_utils.shiftLeftFunction(8 * (32 - 4)));
 	templ("funId", IRVariable(_functionCall.expression()).part("functionIdentifier").name());
 	templ("address", IRVariable(_functionCall.expression()).part("address").name());
@@ -1307,14 +1307,9 @@ void IRGeneratorForStatements::appendExternalFunctionCall(
 	m_code << templ.render();
 }
 
-string IRGeneratorForStatements::freeMemoryStart()
+string IRGeneratorForStatements::freeMemory()
 {
-	return to_string(CompilerUtils::freeMemoryPointer);
-}
-
-string IRGeneratorForStatements::fetchFreeMemoryPointer()
-{
-	return "mload(" + freeMemoryStart() + ")";
+	return "mload(" + to_string(CompilerUtils::freeMemoryPointer) + ")";
 }
 
 IRVariable IRGeneratorForStatements::convert(IRVariable const& _from, Type const& _to)
