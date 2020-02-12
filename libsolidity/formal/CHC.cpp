@@ -674,12 +674,28 @@ unique_ptr<smt::SymbolicFunctionVariable> CHC::createSymbolicBlock(smt::SortPoin
 	return block;
 }
 
+void CHC::defineInterfacesAndSummaries(SourceUnit const& _source)
+{
+	for (auto const& node: _source.nodes())
+		if (auto const* contract = dynamic_cast<ContractDefinition const*>(node.get()))
+			for (auto const* base: contract->annotation().linearizedBaseContracts)
+			{
+				string suffix = base->name() + "_" + to_string(base->id());
+				m_interfaces[base] = createSymbolicBlock(interfaceSort(*base), "interface_" + suffix);
+				for (auto const* var: stateVariablesIncludingInheritedAndPrivate(*base))
+					if (!m_context.knownVariable(*var))
+						createVariable(*var);
+				for (auto const* function: base->definedFunctions())
+					m_summaries[contract].emplace(function, createSummaryBlock(*function, *contract));
+			}
+}
+
 smt::Expression CHC::interface()
 {
 	vector<smt::Expression> paramExprs;
 	for (auto const& var: m_stateVariables)
 		paramExprs.push_back(m_context.variable(*var)->currentValue());
-	return (*m_interfacePredicate)(paramExprs);
+	return (*m_interfaces.at(m_currentContract))(paramExprs);
 }
 
 smt::Expression CHC::interface(ContractDefinition const& _contract)

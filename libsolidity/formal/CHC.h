@@ -109,6 +109,10 @@ private:
 	/// @returns a new block of given _sort and _name.
 	std::unique_ptr<smt::SymbolicFunctionVariable> createSymbolicBlock(smt::SortPointer _sort, std::string const& _name);
 
+	/// Creates summary predicates for all functions of all contracts
+	/// in a given _source.
+	void defineInterfacesAndSummaries(SourceUnit const& _source);
+
 	/// Genesis predicate.
 	smt::Expression genesis() { return (*m_genesisPredicate)({}); }
 	/// Interface predicate over current variables.
@@ -183,7 +187,7 @@ private:
 
 	/// Artificial Interface predicate.
 	/// Single entry block for all functions.
-	std::unique_ptr<smt::SymbolicFunctionVariable> m_interfacePredicate;
+	std::map<ContractDefinition const*, std::unique_ptr<smt::SymbolicFunctionVariable>> m_interfaces;
 
 	/// Artificial Error predicate.
 	/// Single error block for all assertions.
