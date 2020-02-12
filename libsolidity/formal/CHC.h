@@ -183,7 +183,11 @@ private:
 
 	/// Implicit constructor predicate.
 	/// Explicit constructors are handled as functions.
-	std::unique_ptr<smt::SymbolicFunctionVariable> m_constructorPredicate;
+	std::unique_ptr<smt::SymbolicFunctionVariable> m_implicitConstructorPredicate;
+
+	/// Constructor summary predicate, exists after the constructor
+	/// (implicit or explicit) and before the interface.
+	std::unique_ptr<smt::SymbolicFunctionVariable> m_constructorSummaryPredicate;
 
 	/// Artificial Interface predicate.
 	/// Single entry block for all functions.
