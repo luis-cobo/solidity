@@ -84,18 +84,21 @@ pair<CheckResult, vector<string>> Z3CHCInterface::query(Expression const& _expr)
 		case z3::check_result::sat:
 		{
 			result = CheckResult::SATISFIABLE;
+			cout << "SAT\n" << endl;
 			// TODO retrieve model.
 			break;
 		}
 		case z3::check_result::unsat:
 		{
 			result = CheckResult::UNSATISFIABLE;
+			cout << "UNSAT\n" << endl;
 			// TODO retrieve invariants.
 			break;
 		}
 		case z3::check_result::unknown:
 		{
 			result = CheckResult::UNKNOWN;
+			cout << "UNKOWN\n" << endl;
 			break;
 		}
 		}

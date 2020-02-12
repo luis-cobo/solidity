@@ -81,7 +81,8 @@ private:
 
 	/// Helpers.
 	//@{
-	void reset();
+	void resetSourceAnalysis();
+	void resetContractAnalysis();
 	void eraseKnowledge();
 	void clearIndices(ContractDefinition const* _contract, FunctionDefinition const* _function = nullptr) override;
 	bool shouldVisit(ContractDefinition const& _contract) const;
@@ -166,8 +167,11 @@ private:
 	//@{
 	/// Adds Horn rule to the solver.
 	void addRule(smt::Expression const& _rule, std::string const& _ruleName);
-	/// @returns true if query is unsatisfiable (safe).
-	bool query(smt::Expression const& _query, langutil::SourceLocation const& _location);
+	/// @returns <true, empty> if query is unsatisfiable (safe).
+	/// @returns <false, model> otherwise.
+	std::pair<smt::CheckResult, std::vector<std::string>> query(smt::Expression const& _query, langutil::SourceLocation const& _location);
+
+	void addVerificationTarget(ASTNode const* _scope, smt::Expression _from, smt::Expression _constraints, smt::Expression _errorId);
 	//@}
 
 	/// Misc.
@@ -221,7 +225,11 @@ private:
 
 	/// Verification targets.
 	//@{
-	std::vector<Expression const*> m_verificationTargets;
+	struct CHCVerificationTarget: VerificationTarget
+	{
+		smt::Expression errorId;
+	};
+	std::map<ASTNode const*, CHCVerificationTarget> m_verificationTargets;
 
 	/// Assertions proven safe.
 	std::set<Expression const*> m_safeAssertions;
@@ -229,6 +237,9 @@ private:
 
 	/// Control-flow.
 	//@{
+	std::set<ContractDefinition const*> m_analyzedContracts;
+	std::set<ContractDefinition const*> m_toAnalyzeContracts;
+
 	FunctionDefinition const* m_currentFunction = nullptr;
 
 	std::map<ASTNode const*, std::set<ASTNode const*>> m_callGraph;

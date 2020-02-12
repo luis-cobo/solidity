@@ -27,6 +27,8 @@
 
 #include <libsolidity/ast/TypeProvider.h>
 
+#include <queue>
+
 using namespace std;
 using namespace solidity;
 using namespace solidity::langutil;
@@ -75,6 +77,8 @@ void CHC::analyze(SourceUnit const& _source)
 	m_context.setAssertionAccumulation(false);
 	m_variableUsage.setFunctionInlining(false);
 
+	resetSourceAnalysis();
+
 	auto boolSort = make_shared<smt::Sort>(smt::Kind::Bool);
 	auto genesisSort = make_shared<smt::FunctionSort>(
 		vector<smt::SortPointer>(),
@@ -88,6 +92,27 @@ void CHC::analyze(SourceUnit const& _source)
 		defineInterfacesAndSummaries(*source);
 
 	_source.accept(*this);
+	while (!m_toAnalyzeContracts.empty())
+	{
+		auto toAnalyze = move(m_toAnalyzeContracts);
+		m_toAnalyzeContracts.clear();
+		for (auto const* contract: toAnalyze)
+			if (!m_analyzedContracts.count(contract))
+				contract->accept(*this);
+	}
+
+	for (auto const& [scope, target]: m_verificationTargets)
+	{
+		auto assertions = transactionAssertions(scope);
+		for (auto const* assertion: assertions)
+		{
+			createErrorBlock();
+			connectBlocks(target.value, error(), target.constraints && (target.errorId == assertion->id()));
+			[[maybe_unused]] auto [result, model] = query(error(), assertion->location());
+			if (result == smt::CheckResult::UNSATISFIABLE)
+				m_safeAssertions.insert(assertion);
+		}
+	}
 }
 
 vector<string> CHC::unhandledQueries() const
@@ -100,10 +125,10 @@ vector<string> CHC::unhandledQueries() const
 
 bool CHC::visit(ContractDefinition const& _contract)
 {
-	if (!shouldVisit(_contract))
-		return false;
+	solAssert(!m_analyzedContracts.count(&_contract), "");
+	m_analyzedContracts.insert(&_contract);
 
-	reset();
+	resetContractAnalysis();
 
 	initContract(_contract);
 
@@ -520,15 +545,25 @@ void CHC::unknownFunctionCall(FunctionCall const&)
 	m_unknownFunctionCallSeen = true;
 }
 
-void CHC::reset()
+void CHC::resetSourceAnalysis()
+{
+	m_verificationTargets.clear();
+	m_safeAssertions.clear();
+	m_functionAssertions.clear();
+	m_callGraph.clear();
+	m_summaries.clear();
+	m_analyzedContracts.clear();
+	m_toAnalyzeContracts.clear();
+}
+
+void CHC::resetContractAnalysis()
 {
 	m_stateSorts.clear();
 	m_stateVariables.clear();
-	m_verificationTargets.clear();
-	m_safeAssertions.clear();
 	m_unknownFunctionCallSeen = false;
 	m_breakDest = nullptr;
 	m_continueDest = nullptr;
+	m_error.resetIndex();
 }
 
 void CHC::eraseKnowledge()
@@ -916,7 +951,7 @@ void CHC::addRule(smt::Expression const& _rule, string const& _ruleName)
 	m_interface->addRule(_rule, _ruleName);
 }
 
-bool CHC::query(smt::Expression const& _query, langutil::SourceLocation const& _location)
+pair<smt::CheckResult, vector<string>> CHC::query(smt::Expression const& _query, langutil::SourceLocation const& _location)
 {
 	smt::CheckResult result;
 	vector<string> values;
@@ -926,7 +961,7 @@ bool CHC::query(smt::Expression const& _query, langutil::SourceLocation const& _
 	case smt::CheckResult::SATISFIABLE:
 		break;
 	case smt::CheckResult::UNSATISFIABLE:
-		return true;
+		break;
 	case smt::CheckResult::UNKNOWN:
 		break;
 	case smt::CheckResult::CONFLICTING:
@@ -936,7 +971,12 @@ bool CHC::query(smt::Expression const& _query, langutil::SourceLocation const& _
 		m_outerErrorReporter.warning(_location, "Error trying to invoke SMT solver.");
 		break;
 	}
-	return false;
+	return {result, values};
+}
+
+void CHC::addVerificationTarget(ASTNode const* _scope, smt::Expression _from, smt::Expression _constraints, smt::Expression _errorId)
+{
+	m_verificationTargets.emplace(_scope, CHCVerificationTarget{{VerificationTarget::Type::Assert, _from, _constraints}, _errorId});
 }
 
 string CHC::uniquePrefix()
